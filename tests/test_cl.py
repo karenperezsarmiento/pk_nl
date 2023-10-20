@@ -13,7 +13,7 @@ for i in range(len(zsrc_arr)):
     C_kk[zsrc_arr[i]] = cl.get_Cl_kk()
     lab = "Src at z="+str(zsrc_arr[i])
     plt.loglog(cl.ells,cl.ells*C_kk[zsrc_arr[i]],label=lab)
-
+print(cl.zsrc)
 cl.get_theo()
 plt.loglog(cl.d["cents"],cl.d["cents"]*cl.d["data_binned"],label="Data binned")
 plt.loglog(cl.d["cents"],cl.d["cents"]*cl.d["theory_binned"],label="Theory binned")

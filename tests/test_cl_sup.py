@@ -1,6 +1,7 @@
+import sys
+sys.path.append("../")
 import pk_func as pk
 import numpy as np
-#from pk_func import Cl_kk_supp as cl
 import matplotlib.pyplot as plt
 
 pkcl = pk.Cl_kk_supp()
