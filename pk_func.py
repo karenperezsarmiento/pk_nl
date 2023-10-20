@@ -49,9 +49,10 @@ class Cl_kk_supp:
     fsky = 1.
     d = {}
     mock_data = True
-    fname_mock_data = "mock_sup_cl_0.4.txt"
-    fname_mock_cinv = "mock_sup_cinv0.4.txt"
+    fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_0.4.txt"
+    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv0.4.txt"
     n_alphas = 20
+    alphas = np.ones(n_alphas)
 
     def __init__(self):
         pars = camb.CAMBparams()
