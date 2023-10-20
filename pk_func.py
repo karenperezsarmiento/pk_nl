@@ -36,7 +36,6 @@ class Cl_kk_supp:
     k_max = 100
     zmax = 5000
     zsrc = 0.4
-    nz = 1000000
     ells = np.arange(0,10000)
     z_arr = np.arange(0.001,50,0.01)
     ez = np.arange(0.001,6,0.01)
@@ -51,7 +50,7 @@ class Cl_kk_supp:
     mock_data = True
     fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_0.4.txt"
     fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv_0.4.txt"
-    n_alphas = 20
+    n_alphas = 2
     alphas = np.ones(n_alphas)
 
     def __init__(self):
@@ -76,8 +75,8 @@ class Cl_kk_supp:
         self.d["data_binned"] = data_binned
         
 
-    def make_mock_data(self):
-        cl = self.get_Cl_kk(sup=False)
+    def make_mock_data(self,sup):
+        cl = self.get_Cl_kk(sup=sup)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
         cls_dict = {"kk":interp1d(self.ells,cl)}
         cents,data_binned = self.binner.bin(self.ells,cl)
