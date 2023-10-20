@@ -50,7 +50,7 @@ class Cl_kk_supp:
     d = {}
     mock_data = True
     fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_0.4.txt"
-    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv0.4.txt"
+    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv_0.4.txt"
     n_alphas = 20
     alphas = np.ones(n_alphas)
 
@@ -76,9 +76,8 @@ class Cl_kk_supp:
         self.d["data_binned"] = data_binned
         
 
-    def make_mock_data(self,alphas):
-        self.alphas = alphas
-        cl = self.get_Cl_kk(sup=True)
+    def make_mock_data(self):
+        cl = self.get_Cl_kk(sup=False)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
         cls_dict = {"kk":interp1d(self.ells,cl)}
         cents,data_binned = self.binner.bin(self.ells,cl)
