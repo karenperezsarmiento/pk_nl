@@ -75,7 +75,8 @@ class Cl_kk_supp:
         self.d["data_binned"] = data_binned
         
 
-    def make_mock_data(self,sup):
+    def make_mock_data(self,sup,alphas):
+        self.alphas = alphas
         cl = self.get_Cl_kk(sup=sup)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
         cls_dict = {"kk":interp1d(self.ells,cl)}
