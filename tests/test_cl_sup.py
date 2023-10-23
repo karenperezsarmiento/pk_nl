@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 pkcl = pk.Cl_kk_supp()
 pkcl.zsrc = 0.4
-alphas = np.ones(20)*0.80
+alphas = np.linspace(-1,1,20)
 cents,data_binned,cinv = pkcl.make_mock_data(sup=True,alphas=alphas)
 cl_arr = np.vstack((cents,data_binned))
 np.savetxt("../mock_data/mock_sup_cl_0.4.txt",cl_arr)
