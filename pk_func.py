@@ -147,9 +147,9 @@ class Cl_kk_supp:
         self.alphas = alphas
         self.get_theo()
         delta = self.d["data_binned"] - self.d["theory_binned"]
-        lnlike = -0.5 * np.dot(delta,np.dot(self.d["cinv"],self.d["theory_binned"]))
+        lnlike = -0.5 * np.dot(delta,np.dot(self.d["cinv"],delta))
         return lnlike
 
     def prior_transform(self,ualphas):
-        alphas = -0.5*ualphas - 1
+        alphas = 2*ualphas - 1
         return alphas
