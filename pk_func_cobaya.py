@@ -7,6 +7,7 @@ import camb
 from camb import model
 from sacc import Sacc, standard_types
 from scipy.stats import binned_statistic as binnedstat
+from cobaya.likelihood import Likelihood
 
 class bin1D:
     def __init__(self, bin_edges):
@@ -27,7 +28,7 @@ class bin1D:
         bin_means = binnedstat(x,y,bins=self.bin_edges,statistic=stat)[0]
         return self.cents,bin_means
 
-class Cl_kk_supp:
+class Cl_kk_supp(Likelihood):
     H0 = 67.5
     ombh2 = 0.022
     omch2 = 0.122
@@ -53,7 +54,7 @@ class Cl_kk_supp:
     n_alphas = 2
     alphas = np.ones(n_alphas)
 
-    def __init__(self):
+    def initialize(self):
         pars = camb.CAMBparams()
         pars.set_cosmology(H0=self.H0, ombh2=self.ombh2, omch2=self.omch2)
         pars.InitPower.set_params(ns=self.ns)
@@ -73,6 +74,9 @@ class Cl_kk_supp:
             cents,data_binned = self.binner.bin(data["wl_0"]["l"],data["wl_0"]["cl"])
         self.d['cinv'] = np.loadtxt(self.fname_mock_cinv)
         self.d["data_binned"] = data_binned
+    
+    def get_requirements(self):
+        return {'alpha1':None,'alpha2':None}
         
 
     def make_mock_data(self,sup,alphas):
@@ -143,28 +147,11 @@ class Cl_kk_supp:
             C_kk[i] = np.trapz(integrand,self.z_arr)
         return C_kk
 
-    ###For emcee
-    def log_prior(self,alphas):
-        if np.all(alphas<1.)&np.all(alphas>-1.):
-            return 0.0
-        return -np.inf
-            
-    ###For emcee
-    def log_probability(self,alphas):
-        lp = self.log_prior(alphas)
-        if not np.isfinite(lp):
-            return -np.inf
-        return lp+self.logp(alphas)
-    
     ###For emcee and dynesty
-    def logp(self,alphas):
-        self.alphas = alphas
+    def logp(self,**kwargs):
+        self.alphas = np.array([kwargs[p] for p in ["alpha1","alpha2"]])
         self.get_theo()
         delta = self.d["data_binned"] - self.d["theory_binned"]
         lnlike = -0.5 * np.dot(delta,np.dot(self.d["cinv"],delta))
         return lnlike
     
-    ###For dynesty
-    def prior_transform(self,ualphas):
-        alphas = 2*ualphas - 1
-        return alphas
