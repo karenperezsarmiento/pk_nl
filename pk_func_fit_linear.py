@@ -7,7 +7,7 @@ import camb
 from camb import model
 from sacc import Sacc, standard_types
 from scipy.stats import binned_statistic as binnedstat
-from cobaya.likelihood import Likelihood
+from scipy.interpolate import interp1d
 
 class bin1D:
     def __init__(self, bin_edges):
@@ -28,7 +28,7 @@ class bin1D:
         bin_means = binnedstat(x,y,bins=self.bin_edges,statistic=stat)[0]
         return self.cents,bin_means
 
-class Cl_kk_supp(Likelihood):
+class Cl_kk_supp:
     H0 = 67.5
     ombh2 = 0.022
     omch2 = 0.122
@@ -40,7 +40,7 @@ class Cl_kk_supp(Likelihood):
     ells = np.arange(0,10000)
     z_arr = np.arange(0.001,50,0.01)
     ez = np.arange(0.001,6,0.01)
-    lmin = 10
+    lmin = 5
     lmax = 9000
     nbins = 40
     shape_std = 0.3
@@ -49,12 +49,11 @@ class Cl_kk_supp(Likelihood):
     fsky = 1.
     d = {}
     mock_data = True
-    fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_sup_cl_0.4.txt"
-    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_sup_cinv_0.4.txt"
-    n_alphas = 5
-    alphas = np.ones(n_alphas)
+    fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_z_0.4_lin_fit.txt"
+    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv_z_0.4_lin_fit.txt"
+    n_alphas = 4
 
-    def initialize(self):
+    def __init__(self):
         pars = camb.CAMBparams()
         pars.set_cosmology(H0=self.H0, ombh2=self.ombh2, omch2=self.omch2)
         pars.InitPower.set_params(ns=self.ns)
@@ -72,17 +71,17 @@ class Cl_kk_supp(Likelihood):
         else:
             data = self.load_data()
             cents,data_binned = self.binner.bin(data["wl_0"]["l"],data["wl_0"]["cl"])
+        self.d["cents"] = cents
         self.d['cinv'] = np.loadtxt(self.fname_mock_cinv)
         self.d["data_binned"] = data_binned
-    
-    def get_requirements(self):
-        return {'alpha1':None,'alpha2':None,'alpha3':None,'alpha4':None,'alpha5':None,'alpha6':None,'alpha7':None,'alpha8':None,'alpha9':None,'alpha10':None,'alpha11':None,'alpha12':None,'alpha13':None,'alpha14':None,'alpha15':None,'alpha16':None,'alpha17':None,'alpha18':None,'alpha19':None,'alpha20':None}
         
 
     def make_mock_data(self,sup,alphas):
         self.alphas = alphas
         cl = self.get_Cl_kk(sup=sup)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
+        noise_cov = nls_dict["kk"](self.ells)
+        self.noise_cov = noise_cov
         cls_dict = {"kk":interp1d(self.ells,cl)}
         cents,data_binned = self.binner.bin(self.ells,cl)
         cov = pf.gaussian_band_covariance(self.bin_edges,['kk'],cls_dict,nls_dict,interpolate=False)[:,0,0] / self.fsky
@@ -115,12 +114,15 @@ class Cl_kk_supp(Likelihood):
 
     def get_Pk_suppressed(self,k):
         Pk = self.get_pure_Pk(k)
-        self.n_alphas = len(self.alphas)
         k_bins = np.geomspace(5e-5,3e3,self.n_alphas+1)
         inds = np.digitize(k,k_bins)-1
-        alphas_k = [self.alphas[j] for j in inds]
-        Pk_sup = alphas_k*Pk
-        return Pk_sup
+        Pk_sup_out = np.zeros((len(Pk),self.n_alphas))
+        for ind in range(self.n_alphas):
+            inds_mask = (inds==ind)
+            #Pk_sup = self.alphas[ind] * inds_mask * Pk
+            Pk_sup = inds_mask * Pk
+            Pk_sup_out[:,ind] = Pk_sup
+        return Pk_sup_out
 
     def get_window_kk(self):
         dndz = np.exp(-(self.ez-self.zsrc)**2/(0.1**2))
@@ -135,24 +137,44 @@ class Cl_kk_supp(Likelihood):
         window_kk = f*integral
         return window_kk
 
-    def get_Cl_kk(self,sup=True):
+    def get_Cl_kk(self):
         window_kk = self.get_window_kk()
-        C_kk = np.zeros(self.ells.shape)
+        #self.n_alphas = len(self.alphas)
+        C_kk = np.zeros((self.ells.shape[0],self.n_alphas))
         for i in range(len(self.ells)):
             k = (self.ells[i] + 0.5)/self.chi_arr
-            if sup:
-                Pk_sup = self.get_Pk_suppressed(k)
-            else:
-                Pk_sup = self.get_pure_Pk(k)
-            integrand = (1/self.c)*(self.H_z / self.chi_arr**2 )*window_kk**2 * Pk_sup
-            C_kk[i] = np.trapz(integrand,self.z_arr)
+            Pk_sup_out = self.get_Pk_suppressed(k)
+            integrand = (1/self.c)*(self.H_z[:,None] / self.chi_arr[:,None]**2 )*window_kk[:,None]**2 * Pk_sup_out
+            C_kk[i,:] = np.trapz(integrand,self.z_arr[:,None],axis=0)
+        print(C_kk.shape)
         return C_kk
-
-    ###For emcee and dynesty
-    def logp(self,**kwargs):
-        self.alphas = np.array([kwargs[p] for p in ["alpha1","alpha2","alpha3","alpha4","alpha5","alpha6","alpha7","alpha8","alpha9","alpha10","alpha11","alpha12","alpha13","alpha14","alpha15","alpha16","alpha17","alpha18","alpha19","alpha20"]])
-        self.get_theo()
-        delta = self.d["data_binned"] - self.d["theory_binned"]
-        lnlike = -0.5 * np.dot(delta,np.dot(self.d["cinv"],delta))
-        return lnlike
     
+    def get_Cl_kk_funcs(self):
+        f = self.get_Cl_kk()
+        funcs = [interp1d(self.ells,f[:,j]) for j in range(f.shape[1])]
+        return funcs 
+    
+    def fit_linear_model(self,x,y,cinv,funcs):
+        y = y.reshape((y.size,1))
+        A = np.zeros((y.size,len(funcs)))
+        for i,func in enumerate(funcs):
+            A[:,i] = func(x)
+        CA = np.dot(cinv,A)
+        cov = np.linalg.inv(np.dot(A.T,CA))
+        Cy = np.dot(cinv,y)
+        b = np.dot(A.T,Cy)
+        X = np.dot(cov,b)
+        YAX = (y-np.dot(A,X))
+        chisquare = np.dot(YAX.T,np.dot(cinv,YAX))
+        return X, chisquare
+
+    def eval(self):
+        #self.alphas = alphas ##remove later on
+        x = self.d["cents"]
+        y = self.d["data_binned"]
+        cinv = self.d["cinv"]
+        funcs = self.get_Cl_kk_funcs()
+        X,chisquare = self.fit_linear_model(x,y,cinv,funcs)
+        return X, chisquare
+        
+

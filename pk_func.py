@@ -39,7 +39,7 @@ class Cl_kk_supp:
     ells = np.arange(0,10000)
     z_arr = np.arange(0.001,50,0.01)
     ez = np.arange(0.001,6,0.01)
-    lmin = 10
+    lmin = 5
     lmax = 9000
     nbins = 40
     shape_std = 0.3
@@ -48,9 +48,9 @@ class Cl_kk_supp:
     fsky = 1.
     d = {}
     mock_data = True
-    fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_0.4.txt"
-    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv_0.4.txt"
-    n_alphas = 2
+    fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_sup_cl_0.4.txt"
+    fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_sup_cinv_0.4.txt"
+    n_alphas = 5
     alphas = np.ones(n_alphas)
 
     def __init__(self):
@@ -79,6 +79,8 @@ class Cl_kk_supp:
         self.alphas = alphas
         cl = self.get_Cl_kk(sup=sup)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
+        noise_cov = nls_dict["kk"](self.ells)
+        self.noise_cov = noise_cov
         cls_dict = {"kk":interp1d(self.ells,cl)}
         cents,data_binned = self.binner.bin(self.ells,cl)
         cov = pf.gaussian_band_covariance(self.bin_edges,['kk'],cls_dict,nls_dict,interpolate=False)[:,0,0] / self.fsky
@@ -111,7 +113,8 @@ class Cl_kk_supp:
 
     def get_Pk_suppressed(self,k):
         Pk = self.get_pure_Pk(k)
-        k_bins = np.geomspace(5e-5,3e3,self.n_alphas)
+        self.n_alphas = len(self.alphas)
+        k_bins = np.geomspace(5e-5,3e3,self.n_alphas+1)
         inds = np.digitize(k,k_bins)-1
         alphas_k = [self.alphas[j] for j in inds]
         Pk_sup = alphas_k*Pk
@@ -145,7 +148,7 @@ class Cl_kk_supp:
 
     ###For emcee
     def log_prior(self,alphas):
-        if np.all(alphas<1.)&np.all(alphas>-1.):
+        if np.all(alphas>0.)&np.all(alphas<2.):
             return 0.0
         return -np.inf
             
@@ -166,5 +169,5 @@ class Cl_kk_supp:
     
     ###For dynesty
     def prior_transform(self,ualphas):
-        alphas = 2*ualphas - 1
+        alphas = 2*ualphas
         return alphas
