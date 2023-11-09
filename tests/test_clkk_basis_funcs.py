@@ -6,7 +6,7 @@ import pk_func as pk1
 import numpy as np
 import matplotlib.pyplot as plt
 
-alphas = np.arange(0.3,0.7,0.1)
+alphas = np.array([0.1,0.3,0.5,0.7])
 
 pkcl1 = pk1.Cl_kk_supp()
 pkcl2 = pk2.Cl_kk_supp()
@@ -28,8 +28,8 @@ plt.loglog(cents,data_binned,label="sup, original,binned")
 plt.legend()
 plt.savefig("../plots/cl_kk_old_new.png")
 
-k_bins = np.geomspace(5e-3,3e3,len(alphas)+1)
-k_bins = np.round(k_bins,decimals = 3)
+k_bins = np.array([5e-5,5e-3,5e-1,5e1,5e3])
+k_bins = np.round(k_bins,decimals = 6)
 
 fig = plt.figure()
 plt.plot(pkcl1.ells,Cl_o,label="not sup, original")

@@ -51,7 +51,8 @@ class Cl_kk_supp:
     mock_data = True
     fname_mock_data = "/home3/kaper/pk_nl/mock_data/mock_cl_z_0.4_lin_fit.txt"
     fname_mock_cinv = "/home3/kaper/pk_nl/mock_data/mock_cinv_z_0.4_lin_fit.txt"
-    n_alphas = 4
+    n_alphas = 3
+    k_bins = np.array([5e-5,4e-3,4e-1,4e1,3e3])
 
     def __init__(self):
         pars = camb.CAMBparams()
@@ -76,14 +77,15 @@ class Cl_kk_supp:
         self.d["data_binned"] = data_binned
         
 
-    def make_mock_data(self,sup,alphas):
+    def make_mock_data(self,alphas,sup_now = True):
         self.alphas = alphas
-        cl = self.get_Cl_kk(sup=sup)
+        cl = self.get_Cl_kk(sup_now=True)
+        cl_out = np.sum(cl,axis=1)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
         noise_cov = nls_dict["kk"](self.ells)
         self.noise_cov = noise_cov
-        cls_dict = {"kk":interp1d(self.ells,cl)}
-        cents,data_binned = self.binner.bin(self.ells,cl)
+        cls_dict = {"kk":interp1d(self.ells,cl_out)}
+        cents,data_binned = self.binner.bin(self.ells,cl_out)
         cov = pf.gaussian_band_covariance(self.bin_edges,['kk'],cls_dict,nls_dict,interpolate=False)[:,0,0] / self.fsky
         cinv = np.diag(1./cov)
         return cents,data_binned,cinv
@@ -112,15 +114,17 @@ class Cl_kk_supp:
     def get_pure_Pk(self,k):
         return self.PK.P(self.z_arr,k,grid=False)
 
-    def get_Pk_suppressed(self,k):
+    def get_Pk_suppressed(self,k,sup_now=False):
         Pk = self.get_pure_Pk(k)
-        k_bins = np.geomspace(5e-5,3e3,self.n_alphas+1)
-        inds = np.digitize(k,k_bins)-1
+        #n_alphas = 3
+        inds = np.digitize(k,self.k_bins)-1
         Pk_sup_out = np.zeros((len(Pk),self.n_alphas))
         for ind in range(self.n_alphas):
             inds_mask = (inds==ind)
-            #Pk_sup = self.alphas[ind] * inds_mask * Pk
-            Pk_sup = inds_mask * Pk
+            if sup_now:
+                Pk_sup = self.alphas[ind] * inds_mask * Pk
+            else:
+                Pk_sup = inds_mask * Pk
             Pk_sup_out[:,ind] = Pk_sup
         return Pk_sup_out
 
@@ -137,16 +141,15 @@ class Cl_kk_supp:
         window_kk = f*integral
         return window_kk
 
-    def get_Cl_kk(self):
+    def get_Cl_kk(self,sup_now=False):
         window_kk = self.get_window_kk()
         #self.n_alphas = len(self.alphas)
         C_kk = np.zeros((self.ells.shape[0],self.n_alphas))
         for i in range(len(self.ells)):
             k = (self.ells[i] + 0.5)/self.chi_arr
-            Pk_sup_out = self.get_Pk_suppressed(k)
+            Pk_sup_out = self.get_Pk_suppressed(k,sup_now)
             integrand = (1/self.c)*(self.H_z[:,None] / self.chi_arr[:,None]**2 )*window_kk[:,None]**2 * Pk_sup_out
             C_kk[i,:] = np.trapz(integrand,self.z_arr[:,None],axis=0)
-        print(C_kk.shape)
         return C_kk
     
     def get_Cl_kk_funcs(self):
@@ -156,6 +159,7 @@ class Cl_kk_supp:
     
     def fit_linear_model(self,x,y,cinv,funcs):
         y = y.reshape((y.size,1))
+        np.savetxt("input_data.txt",y)
         A = np.zeros((y.size,len(funcs)))
         for i,func in enumerate(funcs):
             A[:,i] = func(x)
@@ -164,8 +168,16 @@ class Cl_kk_supp:
         Cy = np.dot(cinv,y)
         b = np.dot(A.T,Cy)
         X = np.dot(cov,b)
+        print(b.shape)
+        X0 = np.dot(cov,b*0 + 0.3)
+        print(X0)
         YAX = (y-np.dot(A,X))
+        YAX0 = (y - np.dot(A,X0))
+        print(YAX0)
+        chisquare0 = np.dot(YAX0.T,np.dot(cinv,YAX0))
         chisquare = np.dot(YAX.T,np.dot(cinv,YAX))
+        print('chisqr true param')
+        print(chisquare0)
         return X, chisquare
 
     def eval(self):

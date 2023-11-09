@@ -114,6 +114,8 @@ class Cl_kk_supp:
     def get_Pk_suppressed(self,k):
         Pk = self.get_pure_Pk(k)
         self.n_alphas = len(self.alphas)
+        #self.n_alphas = 5
+        #k_bins = np.array([5e-5,5e-3,5e-1,5e1,5e3])
         k_bins = np.geomspace(5e-5,3e3,self.n_alphas+1)
         inds = np.digitize(k,k_bins)-1
         alphas_k = [self.alphas[j] for j in inds]
