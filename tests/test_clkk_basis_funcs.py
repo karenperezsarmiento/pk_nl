@@ -6,7 +6,7 @@ import pk_func as pk1
 import numpy as np
 import matplotlib.pyplot as plt
 
-alphas = np.array([0.1,0.3,0.5,0.7])
+alphas = np.array([0.3])
 
 pkcl1 = pk1.Cl_kk_supp()
 pkcl2 = pk2.Cl_kk_supp()
@@ -20,10 +20,13 @@ Cl_2 = pkcl2.get_Cl_kk()
 
 cents,data_binned,cinv = pkcl1.make_mock_data(sup=True,alphas=alphas)
 
+c,d = np.loadtxt("../mock_data/mock_cl_z_0.4_lin_fit.txt")
+
 fig = plt.figure()
 plt.loglog(pkcl1.ells,Cl_o,label="not sup, original")
 plt.loglog(pkcl1.ells,Cl_1,label="sup, origianl")
 plt.loglog(pkcl2.ells,np.sum(Cl_2,axis=1),label="not sup, new")
+plt.loglog(c,d,label="sup,new")
 plt.loglog(cents,data_binned,label="sup, original,binned")
 plt.legend()
 plt.savefig("../plots/cl_kk_old_new.png")
@@ -43,6 +46,6 @@ plt.legend()
 plt.savefig("../plots/cl_kk_old_new_basis_funcs.png")
 
 
-cl_arr = np.vstack((cents,data_binned))
-np.savetxt("../mock_data/mock_cl_z_0.4_lin_fit.txt",cl_arr)
-np.savetxt("../mock_data/mock_cinv_z_0.4_lin_fit.txt",cinv)
+#cl_arr = np.vstack((cents,data_binned))
+#np.savetxt("../mock_data/mock_cl_z_0.4_lin_fit.txt",cl_arr)
+#np.savetxt("../mock_data/mock_cinv_z_0.4_lin_fit.txt",cinv)
