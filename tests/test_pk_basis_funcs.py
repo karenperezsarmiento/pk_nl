@@ -16,7 +16,7 @@ k = (ells + 0.5)/chi
 
 k_bins = np.array([4.5e-5,4.5e-3,1.0e-1,3.0e+3])
 #pkcl.n_alphas = len(pkcl.k_bins) - 1
-alphas = np.array([0.7,0.3,0.1])
+alphas = np.array([0.5,0.3,0.1])
 
 cents,data_binned,cinv = pkcl.make_mock_data(alphas,k_bins)
 
@@ -46,7 +46,9 @@ for i in range(rat.shape[1]):
     plt.plot(k[inds],rat[inds,i])
     plt.fill_between(k[inds],rat[inds,i]-errs_arr[i],rat[inds,i]+errs_arr[i],alpha=0.2)
 plt.xscale("log")
-plt.yscale("log")
+plt.xlabel("k")
+plt.ylabel("$P_{supp}/P_{fid}$")
+plt.ylim(0,1)
 plt.savefig("../plots/pk_alpha_errs.png")
 
 fig = plt.figure()
