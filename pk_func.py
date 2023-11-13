@@ -116,7 +116,7 @@ class Cl_kk_supp:
         self.n_alphas = len(self.alphas)
         #self.n_alphas = 5
         #k_bins = np.array([5e-5,5e-3,5e-1,5e1,5e3])
-        k_bins = np.geomspace(5e-5,3e3,self.n_alphas+1)
+        k_bins = np.array([5e-5,5e-3,1e-1,3e3])
         inds = np.digitize(k,k_bins)-1
         alphas_k = [self.alphas[j] for j in inds]
         Pk_sup = alphas_k*Pk

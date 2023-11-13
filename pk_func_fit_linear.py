@@ -37,7 +37,7 @@ class Cl_kk_supp:
     k_max = 100
     zmax = 5000
     zsrc = 0.4
-    ells = np.arange(0,10000)
+    ells = np.arange(1,10000)
     z_arr = np.arange(0.001,50,0.01)
     ez = np.arange(0.001,6,0.01)
     lmin = 5
@@ -77,9 +77,12 @@ class Cl_kk_supp:
         self.d["data_binned"] = data_binned
         
 
-    def make_mock_data(self,alphas,sup_now = True):
+    def make_mock_data(self,alphas,k_bins):
         self.alphas = alphas
-        cl = self.get_Cl_kk(sup_now=True)
+        self.k_bins = k_bins
+        self.n_alphas = len(self.alphas)
+        cl = self.get_Cl_kk()
+        cl = cl*self.alphas
         cl_out = np.sum(cl,axis=1)
         nls_dict = {'kk': lambda x: x*0+self.shape_std**2/(2.*self.ngal_arcmin2*1.18e7)}
         noise_cov = nls_dict["kk"](self.ells)
@@ -91,7 +94,7 @@ class Cl_kk_supp:
         return cents,data_binned,cinv
 
     def get_theo(self):
-        cl_kappa = self.get_Cl_kk(sup=True)
+        cl_kappa = self.get_Cl_kk()
         self.d["cents"],self.d["theory_binned"] = self.binner.bin(self.ells,cl_kappa)
 
     def load_data(self):
@@ -114,17 +117,13 @@ class Cl_kk_supp:
     def get_pure_Pk(self,k):
         return self.PK.P(self.z_arr,k,grid=False)
 
-    def get_Pk_suppressed(self,k,sup_now=False):
+    def get_Pk_suppressed(self,k):
         Pk = self.get_pure_Pk(k)
-        #n_alphas = 3
         inds = np.digitize(k,self.k_bins)-1
         Pk_sup_out = np.zeros((len(Pk),self.n_alphas))
         for ind in range(self.n_alphas):
             inds_mask = (inds==ind)
-            if sup_now:
-                Pk_sup = self.alphas[ind] * inds_mask * Pk
-            else:
-                Pk_sup = inds_mask * Pk
+            Pk_sup = inds_mask * Pk
             Pk_sup_out[:,ind] = Pk_sup
         return Pk_sup_out
 
@@ -141,25 +140,33 @@ class Cl_kk_supp:
         window_kk = f*integral
         return window_kk
 
-    def get_Cl_kk(self,sup_now=False):
+    def get_Cl_kk(self):
         window_kk = self.get_window_kk()
-        #self.n_alphas = len(self.alphas)
         C_kk = np.zeros((self.ells.shape[0],self.n_alphas))
         for i in range(len(self.ells)):
             k = (self.ells[i] + 0.5)/self.chi_arr
-            Pk_sup_out = self.get_Pk_suppressed(k,sup_now)
+            Pk_sup_out = self.get_Pk_suppressed(k)
             integrand = (1/self.c)*(self.H_z[:,None] / self.chi_arr[:,None]**2 )*window_kk[:,None]**2 * Pk_sup_out
             C_kk[i,:] = np.trapz(integrand,self.z_arr[:,None],axis=0)
         return C_kk
     
     def get_Cl_kk_funcs(self):
         f = self.get_Cl_kk()
-        funcs = [interp1d(self.ells,f[:,j]) for j in range(f.shape[1])]
+        f_b = np.zeros((self.d["cents"].shape[0],f.shape[1]))
+        for i in range(f.shape[1]):
+            cs,f_b[:,i] = self.binner.bin(self.ells,f[:,i])
+        funcs = [interp1d(cs,f_b[:,j]) for j in range(f_b.shape[1])]
         return funcs 
+    
+    def cov2corr(self,mat):
+        diags = np.diagonal(mat).T
+        xdiags = diags[:,None,...]
+        ydiags = diags[None,:,...]
+        corr = mat/np.sqrt(xdiags*ydiags)
+        return corr
     
     def fit_linear_model(self,x,y,cinv,funcs):
         y = y.reshape((y.size,1))
-        np.savetxt("input_data.txt",y)
         A = np.zeros((y.size,len(funcs)))
         for i,func in enumerate(funcs):
             A[:,i] = func(x)
@@ -168,25 +175,18 @@ class Cl_kk_supp:
         Cy = np.dot(cinv,y)
         b = np.dot(A.T,Cy)
         X = np.dot(cov,b)
-        print(b.shape)
-        X0 = np.dot(cov,b*0 + 0.3)
-        print(X0)
         YAX = (y-np.dot(A,X))
-        YAX0 = (y - np.dot(A,X0))
-        print(YAX0)
-        chisquare0 = np.dot(YAX0.T,np.dot(cinv,YAX0))
         chisquare = np.dot(YAX.T,np.dot(cinv,YAX))
-        print('chisqr true param')
-        print(chisquare0)
-        return X, chisquare
+        corr = self.cov2corr(cov)
+        return X, chisquare,cov,corr
 
     def eval(self):
-        #self.alphas = alphas ##remove later on
+        self.n_alphas = len(self.k_bins)-1
         x = self.d["cents"]
         y = self.d["data_binned"]
         cinv = self.d["cinv"]
         funcs = self.get_Cl_kk_funcs()
-        X,chisquare = self.fit_linear_model(x,y,cinv,funcs)
-        return X, chisquare
+        X,chisquare,cov,corr= self.fit_linear_model(x,y,cinv,funcs)
+        return X, chisquare,cov,corr
         
 
